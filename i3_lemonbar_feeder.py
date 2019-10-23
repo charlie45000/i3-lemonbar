@@ -84,7 +84,13 @@ class LemonBar(object):
 
     def get_outputs(self):
 
-        mon = [[out['name'], out.rect['x'], out.rect['y']] for out in self.i3.get_outputs() if out['active']]
+        mon = [[out.name, out.rect.x, out.rect.y] for out in self.i3.get_outputs() if out.active]
+        #mon = []
+        #for out in self.i3.get_outputs():
+        #    if out['active']:
+        #        mon.append([out['name'], out.rect['x'], out.rect['y']])
+        print(mon, file=sys.stderr)
+        sys.stderr.flush()
         quickSort(mon, 0, len(mon)-1)
         print(mon, file=sys.stderr)
         sys.stderr.flush()
@@ -158,17 +164,17 @@ class LemonBar(object):
         wsp_items = ''
 
         for wsp in self.i3.get_workspaces():
-            wsp_name = wsp['name']
+            wsp_name = wsp.name
             wsp_action = "%%{A:i3-msg workspace %s}" % wsp_name
-            if wsp['output'] != display :#and not wsp['urgent']:
+            if wsp.output != display :#and not wsp['urgent']:
                 continue
-            if wsp['focused']:
+            if wsp.focused:
                 wsp_items += " %%{R B%s}%s%s%%{F%s T1} %s%%{A}" % (bg_focused,
                                                                 sep_right,
                                                                 wsp_action,
                                                                 fg_focused,
                                                                 wsp_name)
-            elif wsp['urgent']:
+            elif wsp.urgent:
                 wsp_items += " %%{R B%s}%s%s%%{F- T1} %s%%{A}" % (bg_urgent,
                                                                 sep_right,
                                                                 wsp_action,
@@ -296,7 +302,7 @@ def shutdown(caller):
     
 def run():
     i3 = i3ipc.Connection()
-    i3.auto_reconnect = True
+    #i3.auto_reconnect = True
     #i3thread = Thread(target=i3.main)
     #i3thread.daemon = True
 
