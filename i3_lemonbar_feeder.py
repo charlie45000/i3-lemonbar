@@ -18,16 +18,10 @@ running = True
 
 def sort_cb(el1, el2):
     if el1[1] < el2[1] or el1[2] < el2[2]:
-        print('-1:', el1, el2, file=sys.stderr)
-        sys.stderr.flush()
         return -1
     elif el1[1] > el2[1] or el1[2] > el2[2]:
-        print('1', el1, el2, file=sys.stderr)
-        sys.stderr.flush()
         return 1
     else:
-        print('0', el1, el2, file=sys.stderr)
-        sys.stderr.flush()
         return 0
 
 def partition(arr, low, high):
@@ -83,17 +77,8 @@ class LemonBar(object):
         self.outputs            = self.get_outputs()
 
     def get_outputs(self):
-
         mon = [[out.name, out.rect.x, out.rect.y] for out in self.i3.get_outputs() if out.active]
-        #mon = []
-        #for out in self.i3.get_outputs():
-        #    if out['active']:
-        #        mon.append([out['name'], out.rect['x'], out.rect['y']])
-        print(mon, file=sys.stderr)
-        sys.stderr.flush()
         quickSort(mon, 0, len(mon)-1)
-        print(mon, file=sys.stderr)
-        sys.stderr.flush()
         return [el[0] for el in mon]
 
     def on_battery_event(self, device, props, signature):
@@ -148,9 +133,9 @@ class LemonBar(object):
         fd.write('yes!!\n')
 
     def on_volume_event(self, ev):
-        index = ev.index
-        #self.sink = Pulse('my-client-name').sink_list()[0]#ev.index]
-        self.render_volume(index)
+        default_output_sink_name = self.pulse.server_info().default_sink_name
+        sink = self.pulse.get_sink_by_name(default_output_sink_name)
+        self.render_volume(sink)
         
         for idx, output in enumerate(self.outputs):
             self.display(idx)
@@ -166,7 +151,7 @@ class LemonBar(object):
         for wsp in self.i3.get_workspaces():
             wsp_name = wsp.name
             wsp_action = "%%{A:i3-msg workspace %s}" % wsp_name
-            if wsp.output != display :#and not wsp['urgent']:
+            if wsp.output != display :#and not wsp.urgent:
                 continue
             if wsp.focused:
                 wsp_items += " %%{R B%s}%s%s%%{F%s T1} %s%%{A}" % (bg_focused,
@@ -217,19 +202,15 @@ class LemonBar(object):
                                                     time.strftime("%H:%M"))
         self.datetime = "%s%s" % (cdate, ctime)
 
-    def render_volume(self, index):
-        sink =self.pulse.sink_list()[index]
+    def render_volume(self, sink):
         value = round(sink.volume.value_flat*100)
         mute = bool(sink.mute)
         volume = str(value)+'%%' if not mute else 'MUTE'
-        #volume = 'titi'
         self.volume = "%%{F%s}%s%%{R F%s} %%{T2}%s%%{T1} %s" %(bg_sec_2,
                                             sep_left,
                                             fore,
                                             icon_vol,
                                             volume)
-        #print('test', file=sys.stderr)
-        #sys.stderr.flush()
 
     def render_battery(self, val, state, timeleft):
         value =  str(val) + "%%"
@@ -258,10 +239,13 @@ class LemonBar(object):
         perc = round(self.bat.Get(device, "Percentage"))
         state = self.bat.Get(device, "State")
         timeleft = self.bat.Get(device, "TimeToEmpty" if state==2 else "TimeToFull")
+        default_output_sink_name = self.pulse.server_info().default_sink_name
+        sink = self.pulse.get_sink_by_name(default_output_sink_name)
+
         self.render_battery(perc, state, timeleft)
         self.render_datetime()
         self.render_battery(perc, state, timeleft)
-        self.render_volume(0)
+        self.render_volume(sink)
 
         for idx,output in enumerate(self.outputs):
             self.render_workspaces(index=idx, display=output)
@@ -278,6 +262,7 @@ class LemonBar(object):
                                                     self.datetime)
         print(self.out, end='')
 
+
 def refresh(bat_object, interface):
     refresh_method = bat_object.get_dbus_method('Refresh', interface)
     timeout = 30
@@ -285,14 +270,15 @@ def refresh(bat_object, interface):
         try:
             refresh_method()
             time.sleep(timeout)
-            print(running, file=sys.stderr)
-            sys.stderr.flush()
+            #print(running, file=sys.stderr)
+            #sys.stderr.flush()
         except:
             print('error refresh', file=sys.stderr)
             sys.stderr.flush()
             return
 
-def shutdown(caller):
+def shutdown(caller, test=None):
+    print(test)
     running = False
     lemonpid = int(check_output('pidof -s bar', shell=True))
 
@@ -315,7 +301,7 @@ def run():
     lemonbar.render_all()
 
     pulse = Pulse('event-printer')
-    pulse.event_mask_set('sink')
+    pulse.event_mask_set('sink', 'server')
     pulse.event_callback_set(lemonbar.on_volume_event)
     pulse_thread = Thread(target=pulse.event_listen, args=[0])
     pulse_thread.daemon = True
