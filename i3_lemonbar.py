@@ -15,7 +15,6 @@ from threading import Thread
 from pulsectl import Pulse
 
 bar_pid = 0
-sh_pid = 0
 socket = None
 debug = False
 display_title = True
@@ -105,15 +104,15 @@ def run():
     sched.start()
 
     def shutdown(caller, e):
-        bar.stop_bar(wbak, bar_pid, sh_pid)
+        bar.stop_bar(wbak, bar_pid)
         print(e.change)
         exit(0)
 
     def reload_bar(caller, data):
-        global bar_pid, sh_pid
-        bar.stop_bar(wbak, bar_pid, sh_pid)
+        global bar_pid
+        bar.stop_bar(wbak, bar_pid)
         #print("reloading...")
-        bar_pid, sh_pid = bar.start_bar()
+        bar_pid = bar.start_bar()
         lemonbar.set_outputs()
         lemonbar.render_all(caller=caller, e=data)
 
@@ -138,8 +137,6 @@ bar.set_config(i3)
 
 if not debug:
     wbak = dup(1)
-    bar_pid, sh_pid = bar.start_bar()
+    bar_pid = bar.start_bar()
 else: print(bar.bar_args)
 run()
-
-

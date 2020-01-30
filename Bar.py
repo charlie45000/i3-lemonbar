@@ -1,5 +1,5 @@
-from os import pipe, fork, close, dup2, kill, environ, execve
-from sys import exit
+from os import pipe, fork, close, dup2, kill, environ, execve, wait
+from sys import exit, stderr
 from re import compile as comp
 from signal import SIGTERM
 
@@ -9,7 +9,7 @@ class Bar(object):
         self.transparency = True
         #self.bar_command = '/bin/bar'
         self.bar_command = '/bin/lemonbar'
-        self.bar_args = ['-g']
+        self.bar_args = ['-a', '20', '-g']
         #self.config = dict()
         self.colors = dict()
         self.sep_right = ' | '
@@ -18,41 +18,40 @@ class Bar(object):
 
     def start_bar(self):
         brside, bwside = pipe()
-        srside, swside = pipe()
 
         bar_pid = fork()
         if not bar_pid:
+            srside, swside = pipe()
             close(bwside)
-            close(srside)
 
             dup2(brside, 0)
             dup2(swside, 1)
 
+            sh_pid = fork()
+            if not sh_pid:
+                close(swside)
+                dup2(srside, 0)
+                execve('/bin/sh', ['/bin/sh'], environ)
+                print("test", file=stderr)
+                print("failed to exec sh program!", file=stderr)
+                exit(1)
+
+            close(srside)
             execve(self.bar_command, [self.bar_command] + self.bar_args + ['|', 'sh'], environ)
-            print("failed to exec program!", file=sys.stderr)
+            print("failed to exec bar program!", file=stderr)
             exit(1)
         close(brside)
-        close(swside)
-        sh_pid = fork()
-        if not sh_pid:
-            close(bwside)
-            dup2(srside, 0)
-            execve('/bin/sh', ['/bin/sh'], environ)
-            print("failed to exec program!", file=sys.stderr)
-            exit(1)
-        close(srside)
-        dup2(bwside, 1)
-        return bar_pid, sh_pid #TODO: do not kill sh if possible
 
-    def stop_bar(self, wbak, bar_pid, sh_pid):
+        dup2(bwside, 1)
+        return bar_pid #TODO: do not kill sh if possible
+
+    def stop_bar(self, wbak, bar_pid):
             dup2(wbak, 1)
 
             if bar_pid:
                 kill(bar_pid, SIGTERM)
+                wait()
             else: print("could'nt stop bar")
-            if sh_pid:
-                kill(sh_pid, SIGTERM) #TODO: change that!
-            else: print("could'nt stop shell")
 
     def parse_color(self, color):
         hex_color = "[A-Fa-f0-9]"
