@@ -1,4 +1,4 @@
-from os import pipe, fork, close, dup2, kill, environ, execve, wait
+from os import pipe, fork, close, dup2, killpg, environ, execve, wait, setpgid, getpid
 from sys import exit, stderr
 from re import compile as comp
 from signal import SIGTERM
@@ -27,6 +27,8 @@ class Bar(object):
             dup2(brside, 0)
             dup2(swside, 1)
 
+            setpgid(getpid(), 0)
+
             sh_pid = fork()
             if not sh_pid:
                 close(swside)
@@ -49,7 +51,7 @@ class Bar(object):
             dup2(wbak, 1)
 
             if bar_pid:
-                kill(bar_pid, SIGTERM)
+                killpg(bar_pid, SIGTERM)
                 wait()
             else: print("could'nt stop bar")
 
